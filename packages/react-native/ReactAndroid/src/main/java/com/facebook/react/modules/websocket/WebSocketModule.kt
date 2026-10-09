@@ -60,7 +60,15 @@ public class WebSocketModule(context: ReactApplicationContext) :
   /** CDP request IDs used to report each connection's events to the modern debugger server. */
   private val inspectorRequestIds: MutableMap<Int, String> = ConcurrentHashMap()
 
+  /**
+   * Set once the module is invalidated. OkHttp listeners can outlive the JS runtime that created
+   * them (e.g. a socket closed or still connecting during a reload), and in bridgeless mode their
+   * events would otherwise be delivered to the next runtime, whose sockets reuse the same ids.
+   */
+  @Volatile private var isInvalidated = false
+
   override fun invalidate() {
+    isInvalidated = true
     for (socket in webSocketConnections.values) {
       socket.close(1_001 /* endpoint is going away */, null)
     }
@@ -84,6 +92,9 @@ public class WebSocketModule(context: ReactApplicationContext) :
   }
 
   private fun sendEvent(eventName: String, params: ReadableMap) {
+    if (isInvalidated) {
+      return
+    }
     val reactAppContext = reactApplicationContext
     if (reactAppContext.hasActiveReactInstance()) {
       reactAppContext.emitDeviceEvent(eventName, params)
@@ -189,88 +200,90 @@ public class WebSocketModule(context: ReactApplicationContext) :
       )
     }
 
-    client.newWebSocket(
-        request,
-        object : WebSocketListener() {
-          override fun onOpen(webSocket: WebSocket, response: Response) {
-            webSocketConnections[id] = webSocket
-            reportToInspector(id) { requestId ->
-              InspectorNetworkReporter.reportWebSocketHandshakeResponseReceived(
-                  requestId,
-                  response.code(),
-                  NetworkEventUtil.okHttpHeadersToMap(response.headers()),
-              )
-            }
-            val params = buildReadableMap {
-              put("id", id)
-              put("protocol", response.header("Sec-WebSocket-Protocol", ""))
-            }
-            sendEvent("websocketOpen", params)
-          }
+    val socket =
+        client.newWebSocket(
+            request,
+            object : WebSocketListener() {
+              override fun onOpen(webSocket: WebSocket, response: Response) {
+                reportToInspector(id) { requestId ->
+                  InspectorNetworkReporter.reportWebSocketHandshakeResponseReceived(
+                      requestId,
+                      response.code(),
+                      NetworkEventUtil.okHttpHeadersToMap(response.headers()),
+                  )
+                }
+                val params = buildReadableMap {
+                  put("id", id)
+                  put("protocol", response.header("Sec-WebSocket-Protocol", ""))
+                }
+                sendEvent("websocketOpen", params)
+              }
 
-          override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-            webSocket.close(code, reason)
-          }
+              override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                webSocket.close(code, reason)
+              }
 
-          override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-            reportToInspector(id) { requestId ->
-              InspectorNetworkReporter.reportWebSocketClosed(requestId)
-            }
-            inspectorRequestIds.remove(id)
-            val params = buildReadableMap {
-              put("id", id)
-              put("code", code)
-              put("reason", reason)
-            }
-            sendEvent("websocketClosed", params)
-          }
+              override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                reportToInspector(id) { requestId ->
+                  InspectorNetworkReporter.reportWebSocketClosed(requestId)
+                }
+                inspectorRequestIds.remove(id)
+                val params = buildReadableMap {
+                  put("id", id)
+                  put("code", code)
+                  put("reason", reason)
+                }
+                sendEvent("websocketClosed", params)
+              }
 
-          override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-            reportToInspector(id) { requestId ->
-              InspectorNetworkReporter.reportWebSocketClosed(requestId)
-            }
-            inspectorRequestIds.remove(id)
-            notifyWebSocketFailed(id, t.message)
-          }
+              override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                reportToInspector(id) { requestId ->
+                  InspectorNetworkReporter.reportWebSocketClosed(requestId)
+                }
+                inspectorRequestIds.remove(id)
+                notifyWebSocketFailed(id, t.message)
+              }
 
-          override fun onMessage(webSocket: WebSocket, text: String) {
-            reportToInspector(id) { requestId ->
-              InspectorNetworkReporter.reportWebSocketMessageReceived(requestId, text)
-            }
-            val params = Arguments.createMap()
-            params.putInt("id", id)
-            params.putString("type", "text")
+              override fun onMessage(webSocket: WebSocket, text: String) {
+                reportToInspector(id) { requestId ->
+                  InspectorNetworkReporter.reportWebSocketMessageReceived(requestId, text)
+                }
+                val params = Arguments.createMap()
+                params.putInt("id", id)
+                params.putString("type", "text")
 
-            val contentHandler = contentHandlers[id]
-            if (contentHandler != null) {
-              contentHandler.onMessage(text, params)
-            } else {
-              params.putString("data", text)
-            }
-            sendEvent("websocketMessage", params)
-          }
+                val contentHandler = contentHandlers[id]
+                if (contentHandler != null) {
+                  contentHandler.onMessage(text, params)
+                } else {
+                  params.putString("data", text)
+                }
+                sendEvent("websocketMessage", params)
+              }
 
-          override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-            reportToInspector(id) { requestId ->
-              InspectorNetworkReporter.reportWebSocketMessageReceived(requestId, bytes)
-            }
-            val params = Arguments.createMap()
-            params.putInt("id", id)
-            params.putString("type", "binary")
+              override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+                reportToInspector(id) { requestId ->
+                  InspectorNetworkReporter.reportWebSocketMessageReceived(requestId, bytes)
+                }
+                val params = Arguments.createMap()
+                params.putInt("id", id)
+                params.putString("type", "binary")
 
-            val contentHandler = contentHandlers[id]
-            if (contentHandler != null) {
-              contentHandler.onMessage(bytes, params)
-            } else {
-              val text = bytes.base64()
+                val contentHandler = contentHandlers[id]
+                if (contentHandler != null) {
+                  contentHandler.onMessage(bytes, params)
+                } else {
+                  val text = bytes.base64()
 
-              params.putString("data", text)
-            }
+                  params.putString("data", text)
+                }
 
-            sendEvent("websocketMessage", params)
-          }
-        },
-    )
+                sendEvent("websocketMessage", params)
+              }
+            },
+        )
+    // Track the socket while it is still connecting, so that close() and invalidate() can reach it.
+    webSocketConnections[id] = socket
   }
 
   override fun close(code: Double, reason: String?, socketID: Double) {
