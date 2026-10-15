@@ -398,6 +398,24 @@ function testDropShadow() {
     expect(processFilter('drop-shadow(10px 10px -10px')).toEqual([]);
   });
 
+  it('should fail on lengths without a number string drop-shadow', () => {
+    expect(processFilter('drop-shadow(px px)')).toEqual([]);
+    expect(processFilter('drop-shadow(-px 5px)')).toEqual([]);
+    expect(processFilter('drop-shadow(+px 5px)')).toEqual([]);
+    expect(processFilter('drop-shadow(5px 5px -px)')).toEqual([]);
+  });
+
+  it('should fail on lengths without a number object drop-shadow', () => {
+    expect(processFilter([{dropShadow: {offsetX: '-px', offsetY: 5}}])).toEqual(
+      [],
+    );
+    expect(
+      processFilter([
+        {dropShadow: {offsetX: 5, offsetY: 5, standardDeviation: '-px'}},
+      ]),
+    ).toEqual([]);
+  });
+
   it('should fail on invalid object drop-shadow', () => {
     expect(
       // $FlowExpectedError[incompatible-type]

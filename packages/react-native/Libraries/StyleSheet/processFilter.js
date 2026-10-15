@@ -319,7 +319,13 @@ function parseLength(length: string): ?number {
   LENGTH_PARSE_REGEX.lastIndex = 0;
   const match = LENGTH_PARSE_REGEX.exec(length);
 
-  if (!match || Number.isNaN(match[1])) {
+  if (!match) {
+    return null;
+  }
+
+  // The number group can match without any digits (e.g. "px", "-px")
+  const value = parseFloat(match[1]);
+  if (Number.isNaN(value)) {
     return null;
   }
 
@@ -331,5 +337,5 @@ function parseLength(length: string): ?number {
     return null;
   }
 
-  return Number(match[1]);
+  return value;
 }
