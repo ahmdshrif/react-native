@@ -179,6 +179,11 @@ describe('processBackgroundSize', () => {
     expect(processBackgroundSize('100px 200px 300px')).toEqual([]);
   });
 
+  it('should handle too many values in multiple backgrounds', () => {
+    expect(processBackgroundSize('100px 200px 300px, 50%')).toEqual([]);
+    expect(processBackgroundSize('50%, 100px 200px 300px')).toEqual([]);
+  });
+
   it('should handle empty values in comma-separated list', () => {
     expect(processBackgroundSize('100px 200px,')).toEqual([]);
   });

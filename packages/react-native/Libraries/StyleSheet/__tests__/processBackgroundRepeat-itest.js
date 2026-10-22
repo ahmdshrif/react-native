@@ -179,6 +179,15 @@ describe('processBackgroundRepeat', () => {
     expect(processBackgroundRepeat('repeat no-repeat space')).toEqual([]);
   });
 
+  it('should handle too many values in multiple backgrounds', () => {
+    expect(processBackgroundRepeat('repeat no-repeat space, round')).toEqual(
+      [],
+    );
+    expect(processBackgroundRepeat('round, repeat no-repeat space')).toEqual(
+      [],
+    );
+  });
+
   it('should handle empty values in comma-separated list', () => {
     expect(processBackgroundRepeat('repeat,')).toEqual([]);
   });

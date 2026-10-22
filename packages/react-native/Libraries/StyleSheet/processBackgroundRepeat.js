@@ -98,6 +98,8 @@ function parseBackgroundRepeatCSSString(
       } else {
         return [];
       }
+    } else {
+      return [];
     }
   }
 

@@ -66,6 +66,8 @@ function parseBackgroundSizeCSSString(
       } else {
         return [];
       }
+    } else {
+      return [];
     }
   }
 
