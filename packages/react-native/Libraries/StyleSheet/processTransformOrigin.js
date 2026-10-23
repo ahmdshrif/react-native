@@ -12,7 +12,7 @@ import invariant from 'invariant';
 
 // Pre-compiled regex pattern for performance - avoids regex compilation on each call
 const TRANSFORM_ORIGIN_REGEX =
-  /(top|bottom|left|right|center|-?\d*\.?\d+(?:%|px)|0)/gi;
+  /(top|bottom|left|right|center|-?\d*\.?\d+(?:%|px)?)/gi;
 
 const INDEX_X = 0;
 const INDEX_Y = 1;
@@ -102,7 +102,14 @@ export default function processTransformOrigin(
           if (value.endsWith('%')) {
             transformOriginArray[index] = value;
           } else {
-            transformOriginArray[index] = parseFloat(value); // Remove `px`
+            const length = parseFloat(value); // Remove `px`
+            // CSS lengths require a unit, except for 0
+            invariant(
+              valueLower.endsWith('px') || length === 0,
+              'Could not parse transform-origin: %s',
+              transformOriginString,
+            );
+            transformOriginArray[index] = length;
           }
           break;
         }

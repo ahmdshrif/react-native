@@ -133,5 +133,24 @@ describe('processTransformOrigin', () => {
       ]);
       expect(processTransformOrigin('-.5% -.5px')).toEqual(['-.5%', -0.5, 0]);
     });
+    it('should accept unitless zero', () => {
+      expect(processTransformOrigin('0 0')).toEqual([0, 0, 0]);
+      expect(processTransformOrigin('10px 0 0')).toEqual([10, 0, 0]);
+      expect(processTransformOrigin('left 0')).toEqual([0, 0, 0]);
+    });
+    it('should not allow unitless non-zero lengths', () => {
+      expect(() => {
+        processTransformOrigin('10 20');
+      }).toThrow('Could not parse transform-origin: 10 20');
+      expect(() => {
+        processTransformOrigin('20px 10');
+      }).toThrow('Could not parse transform-origin: 20px 10');
+      expect(() => {
+        processTransformOrigin('left 100');
+      }).toThrow('Could not parse transform-origin: left 100');
+      expect(() => {
+        processTransformOrigin('10em');
+      }).toThrow('Could not parse transform-origin: 10em');
+    });
   });
 });
