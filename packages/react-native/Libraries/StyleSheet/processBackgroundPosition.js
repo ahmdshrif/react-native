@@ -76,23 +76,32 @@ const parseBackgroundPositionCSSString = (
     }
 
     // 2. Two value syntax [ left | center | right | <length-percentage> ] [ top | center | bottom | <length-percentage> ]
+    //    or two keywords in any order [ left | center | right ] && [ top | center | bottom ]
     if (parts.length === 2) {
       const t1 = parts[0];
       const t2 = parts[1];
       if (t1 == null || t2 == null) {
         return [];
       }
-      const token1 = t1.toLowerCase().trim();
+      let token1 = t1.toLowerCase().trim();
+      let token2 = t2.toLowerCase().trim();
+      // When both values are keywords the vertical one may come first
+      // (e.g. 'top center', 'center left'). Normalize to horizontal-first so
+      // the positional rules below apply.
+      if (
+        ((token1 === 'top' || token1 === 'bottom') &&
+          (token2 === 'left' || token2 === 'center' || token2 === 'right')) ||
+        (token1 === 'center' && (token2 === 'left' || token2 === 'right'))
+      ) {
+        [token1, token2] = [token2, token1];
+      }
+
       if (token1 === 'left') {
         left = '0%';
       } else if (token1 === 'center') {
         left = '50%';
       } else if (token1 === 'right') {
         left = '100%';
-      } else if (token1 === 'top') {
-        top = '0%';
-      } else if (token1 === 'bottom') {
-        top = '100%';
       } else if (isValidPosition(token1)) {
         const value = getPositionFromCSSValue(token1);
         if (value == null) {
@@ -101,17 +110,12 @@ const parseBackgroundPositionCSSString = (
         left = value;
       }
 
-      const token2 = t2.toLowerCase().trim();
       if (token2 === 'top') {
         top = '0%';
       } else if (token2 === 'center') {
         top = '50%';
       } else if (token2 === 'bottom') {
         top = '100%';
-      } else if (token2 === 'left') {
-        left = '0%';
-      } else if (token2 === 'right') {
-        left = '100%';
       } else if (isValidPosition(token2)) {
         const value = getPositionFromCSSValue(token2);
         if (value == null) {
@@ -132,32 +136,46 @@ const parseBackgroundPositionCSSString = (
       const token1 = t1.toLowerCase().trim();
       const token2 = t2.toLowerCase().trim();
       const token3 = t3.toLowerCase().trim();
-      // e.g. center top 40%
+      // e.g. center top 40%, center left 40%
       if (token1 === 'center') {
-        left = '50%';
         const value = getPositionFromCSSValue(token3);
         if (value == null) {
           return [];
         }
         if (token2 === 'top') {
+          left = '50%';
           top = value;
         } else if (token2 === 'bottom') {
+          left = '50%';
           bottom = value;
+        } else if (token2 === 'left') {
+          top = '50%';
+          left = value;
+        } else if (token2 === 'right') {
+          top = '50%';
+          right = value;
         } else {
           return [];
         }
       }
-      // e.g. left 40% center
+      // e.g. left 40% center, top 40% center
       else if (token3 === 'center') {
-        top = '50%';
         const value = getPositionFromCSSValue(token2);
         if (value == null) {
           return [];
         }
         if (token1 === 'left') {
+          top = '50%';
           left = value;
         } else if (token1 === 'right') {
+          top = '50%';
           right = value;
+        } else if (token1 === 'top') {
+          left = '50%';
+          top = value;
+        } else if (token1 === 'bottom') {
+          left = '50%';
+          bottom = value;
         } else {
           return [];
         }
@@ -172,6 +190,7 @@ const parseBackgroundPositionCSSString = (
             if (value == null) {
               return [];
             }
+            // An offset is only valid directly after an edge keyword
             const previousToken = tokens[i - 1];
             if (previousToken === 'left') {
               left = value;
@@ -181,6 +200,8 @@ const parseBackgroundPositionCSSString = (
               top = value;
             } else if (previousToken === 'bottom') {
               bottom = value;
+            } else {
+              return [];
             }
           } else {
             if (token === 'left') {
@@ -212,23 +233,28 @@ const parseBackgroundPositionCSSString = (
       const token2 = t2.toLowerCase().trim();
       const token3 = t3.toLowerCase().trim();
       const token4 = t4.toLowerCase().trim();
-      const keyword1 = token1;
       const value1 = getPositionFromCSSValue(token2);
-      const keyword2 = token3;
       const value2 = getPositionFromCSSValue(token4);
       if (value1 == null || value2 == null) {
         return [];
       }
-      if (keyword1 === 'left') {
-        left = value1;
-      } else if (keyword1 === 'right') {
-        right = value1;
-      }
-
-      if (keyword2 === 'top') {
-        top = value2;
-      } else if (keyword2 === 'bottom') {
-        bottom = value2;
+      // The horizontal and vertical pairs may come in either order
+      // (e.g. 'left 10px top 20px' or 'top 20px left 10px').
+      for (const [keyword, value] of [
+        [token1, value1],
+        [token3, value2],
+      ]) {
+        if (keyword === 'left') {
+          left = value;
+        } else if (keyword === 'right') {
+          right = value;
+        } else if (keyword === 'top') {
+          top = value;
+        } else if (keyword === 'bottom') {
+          bottom = value;
+        } else {
+          return [];
+        }
       }
     }
 

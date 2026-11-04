@@ -287,6 +287,87 @@ describe('processBackgroundPosition', () => {
     ]);
   });
 
+  // Test keyword pairs with the vertical keyword first
+  it('should parse top center', () => {
+    expect(processBackgroundPosition('top center')).toEqual([
+      {top: '0%', left: '50%'},
+    ]);
+  });
+
+  it('should parse bottom center', () => {
+    expect(processBackgroundPosition('bottom center')).toEqual([
+      {top: '100%', left: '50%'},
+    ]);
+  });
+
+  it('should parse center left', () => {
+    expect(processBackgroundPosition('center left')).toEqual([
+      {top: '50%', left: '0%'},
+    ]);
+  });
+
+  it('should parse center right', () => {
+    expect(processBackgroundPosition('center right')).toEqual([
+      {top: '50%', left: '100%'},
+    ]);
+  });
+
+  it('should parse top left', () => {
+    expect(processBackgroundPosition('top left')).toEqual([
+      {top: '0%', left: '0%'},
+    ]);
+  });
+
+  it('should parse bottom right', () => {
+    expect(processBackgroundPosition('bottom right')).toEqual([
+      {top: '100%', left: '100%'},
+    ]);
+  });
+
+  // Test three-value syntax with center on either axis
+  it('should parse center left with percentage', () => {
+    expect(processBackgroundPosition('center left 25%')).toEqual([
+      {top: '50%', left: '25%'},
+    ]);
+  });
+
+  it('should parse center right with px', () => {
+    expect(processBackgroundPosition('center right 10px')).toEqual([
+      {top: '50%', right: 10},
+    ]);
+  });
+
+  it('should parse top with percentage center', () => {
+    expect(processBackgroundPosition('top 25% center')).toEqual([
+      {top: '25%', left: '50%'},
+    ]);
+  });
+
+  it('should parse bottom with px center', () => {
+    expect(processBackgroundPosition('bottom 10px center')).toEqual([
+      {bottom: 10, left: '50%'},
+    ]);
+  });
+
+  // Test four-value syntax with the vertical pair first
+  it('should parse top percentage left percentage', () => {
+    expect(processBackgroundPosition('top 25% left 75%')).toEqual([
+      {top: '25%', left: '75%'},
+    ]);
+  });
+
+  it('should parse bottom px right px', () => {
+    expect(processBackgroundPosition('bottom 10px right 20px')).toEqual([
+      {bottom: 10, right: 20},
+    ]);
+  });
+
+  it('should parse top zero left zero', () => {
+    expect(processBackgroundPosition('top 0 left 0')).toEqual([
+      {top: 0, left: 0},
+    ]);
+  });
+
   // Test multiple background positions (comma-separated)
   it('should parse multiple background positions', () => {
     expect(processBackgroundPosition('left top, right bottom')).toEqual([
@@ -371,6 +452,25 @@ describe('processBackgroundPosition', () => {
 
   it('should handle too many values', () => {
     expect(processBackgroundPosition('left top center')).toEqual([]);
+  });
+
+  it('should handle two keywords on the same axis', () => {
+    expect(processBackgroundPosition('left right')).toEqual([]);
+    expect(processBackgroundPosition('top bottom')).toEqual([]);
+  });
+
+  it('should handle an offset after a vertical keyword in two values', () => {
+    expect(processBackgroundPosition('top 10px')).toEqual([]);
+  });
+
+  it('should handle an offset without a preceding edge keyword', () => {
+    expect(processBackgroundPosition('10px left top')).toEqual([]);
+    expect(processBackgroundPosition('center 10px top')).toEqual([]);
+  });
+
+  it('should handle four values with both pairs on the same axis', () => {
+    expect(processBackgroundPosition('left 10px right 20px')).toEqual([]);
+    expect(processBackgroundPosition('top 10px bottom 20px')).toEqual([]);
   });
 
   it('should handle empty values in comma-separated list', () => {
