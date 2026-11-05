@@ -35,9 +35,14 @@ export class URLSearchParams {
           if (!pair) {
             return;
           }
-          const [key, value] = pair
-            .split('=')
-            .map(part => decodeURIComponent(part.replace(/\+/g, ' ')));
+          // Only the first '=' separates the name from the value; a pair
+          // without '=' has an empty value.
+          const separatorIndex = pair.indexOf('=');
+          const [key, value] = (
+            separatorIndex === -1
+              ? [pair, '']
+              : [pair.slice(0, separatorIndex), pair.slice(separatorIndex + 1)]
+          ).map(part => decodeURIComponent(part.replace(/\+/g, ' ')));
           this.append(key, value);
         });
     } else if (Array.isArray(params)) {

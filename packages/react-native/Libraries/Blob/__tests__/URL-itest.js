@@ -163,6 +163,42 @@ describe('URL', function () {
   });
 });
 
+describe('URLSearchParams string parsing', () => {
+  it('splits each pair on the first "=" only', () => {
+    const params = new URLSearchParams(
+      'token=YWJjZA==&jwt=a.b.c=&expr=x=1&==value',
+    );
+
+    expect(params.get('token')).toBe('YWJjZA==');
+    expect(params.get('jwt')).toBe('a.b.c=');
+    expect(params.get('expr')).toBe('x=1');
+    expect(params.get('')).toBe('=value');
+    expect(params.toString()).toBe(
+      'token=YWJjZA%3D%3D&jwt=a.b.c%3D&expr=x%3D1&=%3Dvalue',
+    );
+  });
+
+  it('uses an empty value for pairs without "="', () => {
+    const params = new URLSearchParams('?flag&key=value&other=');
+
+    expect(params.get('flag')).toBe('');
+    expect(params.get('other')).toBe('');
+    expect(Array.from(params.entries())).toEqual([
+      ['flag', ''],
+      ['key', 'value'],
+      ['other', ''],
+    ]);
+    expect(params.toString()).toBe('flag=&key=value&other=');
+  });
+
+  it('keeps "=" inside values read through URL.searchParams', () => {
+    const url = new URL('https://example.com/callback?code=abc%3D&state=xy==');
+
+    expect(url.searchParams.get('code')).toBe('abc=');
+    expect(url.searchParams.get('state')).toBe('xy==');
+  });
+});
+
 describe('URLSearchParams.sort', () => {
   it('sorts names by code units while preserving the order of duplicate values', () => {
     const params = new URLSearchParams([
