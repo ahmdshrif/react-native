@@ -125,21 +125,32 @@ export class URL {
     }
   }
 
+  // The fragment, including the leading '#', or '' if there is none.
+  // Everything after the first '#' belongs to the fragment, so it may
+  // contain '/' and '?'.
+  _rawHash(): string {
+    const hashIndex = this._url.indexOf('#');
+    return hashIndex === -1 ? '' : this._url.slice(hashIndex);
+  }
+
   get hash(): string {
-    const hashMatch = this._url.match(/#([^/]*)/);
-    return hashMatch ? `#${hashMatch[1]}` : '';
+    const hash = this._rawHash();
+    return hash === '#' ? '' : hash;
   }
 
   get host(): string {
-    const hostMatch = this._url.match(/^https?:\/\/(?:[^@]+@)?([^:/?#]+)/);
-    const portMatch = this._url.match(/:(\d+)(?=[/?#]|$)/);
-    return hostMatch
-      ? hostMatch[1] + (portMatch ? `:${portMatch[1]}` : '')
-      : '';
+    const hostname = this.hostname;
+    if (hostname === '') {
+      return '';
+    }
+    const port = this.port;
+    return port !== '' ? `${hostname}:${port}` : hostname;
   }
 
   get hostname(): string {
-    const hostnameMatch = this._url.match(/^https?:\/\/(?:[^@]+@)?([^:/?#]+)/);
+    const hostnameMatch = this._url.match(
+      /^https?:\/\/(?:[^@/?#]*@)?([^:/?#]+)/,
+    );
     return hostnameMatch ? hostnameMatch[1] : '';
   }
 
@@ -148,12 +159,12 @@ export class URL {
   }
 
   get origin(): string {
-    const matches = this._url.match(/^(https?:\/\/[^/]+)/);
-    return matches ? matches[1] : '';
+    const matches = this._url.match(/^(https?:\/\/)(?:[^@/?#]*@)?([^/?#]+)/);
+    return matches ? matches[1] + matches[2] : '';
   }
 
   get password(): string {
-    const passwordMatch = this._url.match(/https?:\/\/.*:(.*)@/);
+    const passwordMatch = this._url.match(/^https?:\/\/[^:@/?#]*:([^@/?#]*)@/);
     return passwordMatch ? passwordMatch[1] : '';
   }
 
@@ -163,7 +174,11 @@ export class URL {
   }
 
   get port(): string {
-    const portMatch = this._url.match(/:(\d+)(?=[/?#]|$)/);
+    // Only read the port from the authority, never from the path, query or
+    // fragment (e.g. '?t=10:30').
+    const portMatch = this._url.match(
+      /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\/(?:[^@/?#]*@)?[^:/?#]*:(\d+)(?=[/?#]|$)/,
+    );
     return portMatch ? portMatch[1] : '';
   }
 
@@ -173,8 +188,15 @@ export class URL {
   }
 
   get search(): string {
-    const searchMatch = this._url.match(/\?([^#]*)/);
-    return searchMatch ? `?${searchMatch[1]}` : '';
+    // A '?' inside the fragment does not start a query.
+    const hashIndex = this._url.indexOf('#');
+    const beforeHash =
+      hashIndex === -1 ? this._url : this._url.slice(0, hashIndex);
+    const queryIndex = beforeHash.indexOf('?');
+    if (queryIndex === -1 || queryIndex === beforeHash.length - 1) {
+      return '';
+    }
+    return beforeHash.slice(queryIndex);
   }
 
   set search(value: string) {
@@ -183,7 +205,7 @@ export class URL {
 
     // Update the internal URL
     const baseUrl = this._url.split('?')[0].split('#')[0];
-    const hash = this.hash;
+    const hash = this._rawHash();
 
     if (searchString) {
       this._url = baseUrl + '?' + searchString + hash;
@@ -213,7 +235,7 @@ export class URL {
 
     // Remove existing search params and hash from the URL
     const baseUrl = this._url.split('?')[0].split('#')[0];
-    const hash = this.hash;
+    const hash = this._rawHash();
 
     // $FlowFixMe[incompatible-use]
     const instanceString = this._searchParamsInstance.toString();
@@ -226,7 +248,9 @@ export class URL {
   }
 
   get username(): string {
-    const usernameMatch = this._url.match(/^https?:\/\/([^:@]+)(?::[^@]*)?@/);
+    const usernameMatch = this._url.match(
+      /^https?:\/\/([^:@/?#]+)(?::[^@/?#]*)?@/,
+    );
     return usernameMatch ? usernameMatch[1] : '';
   }
 }

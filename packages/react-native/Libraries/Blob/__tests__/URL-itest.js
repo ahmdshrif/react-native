@@ -14,6 +14,64 @@ const URL = require('../URL').URL;
 const URLSearchParams = require('../URL').URLSearchParams;
 
 describe('URL', function () {
+  it('reads the port and host from the authority only', () => {
+    const query = new URL('https://example.com/watch?t=10:30');
+    expect(query.port).toBe('');
+    expect(query.host).toBe('example.com');
+
+    const fragment = new URL('https://example.com/watch#t=1:20');
+    expect(fragment.port).toBe('');
+    expect(fragment.host).toBe('example.com');
+
+    const path = new URL('https://example.com/a:8080/b');
+    expect(path.port).toBe('');
+    expect(path.host).toBe('example.com');
+
+    const redirect = new URL(
+      'https://example.com:8443/login?redirect=https://other.dev:9000/home',
+    );
+    expect(redirect.port).toBe('8443');
+    expect(redirect.host).toBe('example.com:8443');
+  });
+
+  it('reads userinfo and origin from the authority only', () => {
+    const url = new URL('https://example.com/invite?email=me@example.org');
+    expect(url.hostname).toBe('example.com');
+    expect(url.username).toBe('');
+    expect(url.password).toBe('');
+
+    const withUserinfo = new URL(
+      'https://user:secret@example.com:81/p?x=a:b@c',
+    );
+    expect(withUserinfo.origin).toBe('https://example.com:81');
+    expect(withUserinfo.username).toBe('user');
+    expect(withUserinfo.password).toBe('secret');
+  });
+
+  it('keeps everything after the first "#" in the hash', () => {
+    const route = new URL('https://example.com/app#/users/42');
+    expect(route.hash).toBe('#/users/42');
+    expect(route.search).toBe('');
+
+    const fragmentWithQuery = new URL('https://example.com/p#section?x=1');
+    expect(fragmentWithQuery.hash).toBe('#section?x=1');
+    expect(fragmentWithQuery.search).toBe('');
+    expect(fragmentWithQuery.searchParams.get('x')).toBe(null);
+
+    const both = new URL('https://example.com/p?a=1#/b?c=2');
+    expect(both.search).toBe('?a=1');
+    expect(both.hash).toBe('#/b?c=2');
+    both.searchParams.set('a', '3');
+    expect(both.toString()).toBe('https://example.com/p?a=3#/b?c=2');
+  });
+
+  it('returns empty strings for an empty query or fragment', () => {
+    const url = new URL('https://example.com/p?#');
+    expect(url.search).toBe('');
+    expect(url.hash).toBe('');
+    expect(url.toString()).toBe('https://example.com/p?#');
+  });
+
   it('should pass Mozilla Dev Network examples', () => {
     const a = new URL('/', 'https://developer.mozilla.org');
     expect(a.href).toBe('https://developer.mozilla.org/');
