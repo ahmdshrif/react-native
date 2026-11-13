@@ -1315,6 +1315,50 @@ describe('TypeScript Module Parser', () => {
       );
     });
   });
+
+  describe('Record', () => {
+    function parseParamType(paramType: string) {
+      const module = parseModule(`
+        import type {TurboModule} from 'RCTExport';
+        import * as TurboModuleRegistry from 'TurboModuleRegistry';
+
+        export interface Spec extends TurboModule {
+          useArg(arg: ${paramType}): void;
+        }
+
+        export default TurboModuleRegistry.get<Spec>('Foo');
+      `);
+      const [method] = module.spec.methods;
+      const [functionTypeAnnotation] = unwrapNullable(method.typeAnnotation);
+      return functionTypeAnnotation.params[0].typeAnnotation;
+    }
+
+    [
+      ['Record<string, unknown>', '{[key: string]: unknown}'],
+      ['Readonly<Record<string, unknown>>', '{[key: string]: unknown}'],
+      ['Record<string, string>', '{[key: string]: string}'],
+      ['Record<string, number | null>', '{[key: string]: number | null}'],
+      ['Record<string, Array<string>>', '{[key: string]: Array<string>}'],
+      ['Record<string, string> | null', '{[key: string]: string} | null'],
+    ].forEach(([recordType, indexSignatureType]) => {
+      it(`parses ${recordType} the same as ${indexSignatureType}`, () => {
+        const recordAnnotation = parseParamType(recordType);
+        expect(recordAnnotation).toEqual(parseParamType(indexSignatureType));
+        expect(unwrapNullable(recordAnnotation)[0]).toEqual(
+          expect.objectContaining({
+            type: 'GenericObjectTypeAnnotation',
+            dictionaryValueType: expect.anything(),
+          }),
+        );
+      });
+    });
+
+    it('should fail parsing a Record whose keys are not string', () => {
+      expect(() => parseParamType("Record<'a' | 'b', string>")).toThrow(
+        UnsupportedGenericParserError,
+      );
+    });
+  });
 });
 
 function parseModule(source: string) {

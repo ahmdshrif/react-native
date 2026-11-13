@@ -156,6 +156,32 @@ function translateTypeReferenceAnnotation(
         translateTypeAnnotation,
       );
     }
+    case 'Record': {
+      // Record<string, T> is the same type as {[key: string]: T}
+      const typeParams = typeAnnotation.typeParameters?.params;
+      if (
+        typeParams != null &&
+        typeParams.length === 2 &&
+        typeParams[0].type === 'TSStringKeyword'
+      ) {
+        const valueType = translateTypeAnnotation(
+          hasteModuleName,
+          typeParams[1],
+          types,
+          aliasMap,
+          enumMap,
+          tryParse,
+          cxxOnly,
+          parser,
+        );
+        return emitDictionary(nullable, valueType);
+      }
+      throw new UnsupportedGenericParserError(
+        hasteModuleName,
+        typeAnnotation,
+        parser,
+      );
+    }
     default: {
       const commonType = emitCommonTypes(
         hasteModuleName,
